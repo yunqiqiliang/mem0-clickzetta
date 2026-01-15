@@ -8,7 +8,257 @@ Complete ClickZetta vector store integration with DashScope embedding support fo
 
 1. **ClickZetta Account**: Access to ClickZetta service
 2. **DashScope API Key**: For Chinese language embedding support
-3. **Environment Configuration**: Set up `.env` file with required credentials
+3. **Python Environment**: Python 3.8+ with required dependencies
+4. **Environment Configuration**: Set up `.env` file with required credentials
+
+## 📦 Installation Guide
+
+### Method 1: Python Environment Setup
+
+#### 1. Create Virtual Environment (Recommended)
+
+```bash
+# Create a new virtual environment
+python -m venv mem0-clickzetta-env
+
+# Activate the virtual environment
+# On macOS/Linux:
+source mem0-clickzetta-env/bin/activate
+# On Windows:
+mem0-clickzetta-env\Scripts\activate
+```
+
+#### 2. Install Dependencies
+
+```bash
+# Upgrade pip to latest version
+pip install --upgrade pip
+
+# Install core dependencies
+pip install mem0ai pydantic
+
+# Install ClickZetta dependencies
+pip install clickzetta-connector-python clickzetta-zettapark-python
+
+# Install additional dependencies for testing and development
+pip install pytest httpx requests
+```
+
+#### 3. Verify Installation
+
+```bash
+# Test Python imports
+python -c "
+import mem0
+import clickzetta
+import pydantic
+print('✅ All dependencies installed successfully!')
+"
+```
+
+### Method 2: Source Code Installation
+
+#### 1. Clone the Repository
+
+```bash
+# Clone the mem0-clickzetta repository
+git clone https://github.com/your-username/mem0-clickzetta.git
+cd mem0-clickzetta
+```
+
+#### 2. Install in Development Mode
+
+```bash
+# Create and activate virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On macOS/Linux
+# .venv\Scripts\activate   # On Windows
+
+# Install the package in editable mode
+pip install -e .
+
+# Or install with development dependencies
+pip install -e ".[dev]"
+```
+
+#### 3. Install ClickZetta Dependencies
+
+```bash
+# Install ClickZetta specific dependencies
+pip install clickzetta-connector-python clickzetta-zettapark-python
+
+# Verify ClickZetta installation
+python -c "
+import clickzetta
+from clickzetta.zettapark.session import Session
+print('✅ ClickZetta dependencies installed successfully!')
+"
+```
+
+#### 4. Run Tests to Verify Installation
+
+```bash
+# Run unit tests
+python -m pytest tests/test_clickzetta_vector_store.py -v
+
+# Run integration tests (requires configuration)
+python mem0/clickzetta/test_integration.py
+```
+
+### Method 3: Docker Installation (Optional)
+
+#### 1. Create Dockerfile
+
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install ClickZetta dependencies
+RUN pip install clickzetta-connector-python clickzetta-zettapark-python
+
+# Copy source code
+COPY . .
+
+# Install the package
+RUN pip install -e .
+
+CMD ["python", "mem0/clickzetta/test_integration.py"]
+```
+
+#### 2. Build and Run
+
+```bash
+# Build Docker image
+docker build -t mem0-clickzetta .
+
+# Run with environment variables
+docker run --env-file .env mem0-clickzetta
+```
+
+### Dependency Requirements
+
+Create a `requirements.txt` file for easy installation:
+
+```txt
+# Core dependencies
+mem0ai>=1.0.0
+pydantic>=2.0.0
+
+# ClickZetta dependencies
+clickzetta-connector-python
+clickzetta-zettapark-python
+
+# HTTP and API dependencies
+httpx>=0.24.0
+requests>=2.28.0
+
+# Development dependencies (optional)
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+black>=23.0.0
+flake8>=6.0.0
+```
+
+### Environment Setup
+
+#### 1. Create Configuration Directory
+
+```bash
+# Create server directory for configuration
+mkdir -p server
+
+# Copy example configuration
+cp server/.env.example server/.env
+```
+
+#### 2. Configure Environment Variables
+
+Edit `server/.env` with your actual credentials:
+
+```bash
+# ClickZetta Configuration
+CLICKZETTA_SERVICE=your-service-endpoint
+CLICKZETTA_INSTANCE=your-instance
+CLICKZETTA_WORKSPACE=your-workspace
+CLICKZETTA_SCHEMA=your-schema
+CLICKZETTA_USERNAME=your-username
+CLICKZETTA_PASSWORD=your-password
+CLICKZETTA_VCLUSTER=your-vcluster
+
+# DashScope API Configuration
+DASHSCOPE_API_KEY=your-dashscope-api-key
+```
+
+### Troubleshooting Installation
+
+#### Common Installation Issues
+
+1. **ClickZetta Dependencies Not Found**
+   ```bash
+   # Ensure you have access to ClickZetta packages
+   pip install --upgrade pip
+   pip install clickzetta-connector-python clickzetta-zettapark-python
+   ```
+
+2. **Python Version Compatibility**
+   ```bash
+   # Check Python version (requires 3.8+)
+   python --version
+
+   # If using older Python, upgrade or use pyenv
+   pyenv install 3.11.0
+   pyenv local 3.11.0
+   ```
+
+3. **Virtual Environment Issues**
+   ```bash
+   # Deactivate and recreate virtual environment
+   deactivate
+   rm -rf .venv
+   python -m venv .venv
+   source .venv/bin/activate
+   ```
+
+4. **Import Errors**
+   ```bash
+   # Verify PYTHONPATH includes the project directory
+   export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+
+   # Or install in development mode
+   pip install -e .
+   ```
+
+#### Verification Commands
+
+```bash
+# Test all components
+python -c "
+try:
+    from mem0.vector_stores.clickzetta import ClickZetta
+    from mem0.embeddings.dashscope import DashScopeEmbedding
+    from mem0.configs.vector_stores.clickzetta import ClickZettaConfig
+    print('✅ All ClickZetta components imported successfully!')
+except ImportError as e:
+    print(f'❌ Import error: {e}')
+"
+
+# Test configuration loading
+python -c "
+from mem0.clickzetta.config_loader import get_clickzetta_config
+config = get_clickzetta_config()
+print('✅ Configuration loaded successfully!' if config else '❌ Configuration failed')
+"
+```
 
 ### Configuration
 
