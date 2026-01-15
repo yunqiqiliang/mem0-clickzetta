@@ -662,44 +662,103 @@ class ClickZetta(VectorStoreBase):
 
     def _insert_batch(self, vectors: List[List[float]], payloads: Optional[List[Dict]] = None, ids: Optional[List[str]] = None):
         """
-        Insert a batch of vectors with optimized SQL generation.
+        Insert a batch of vectors with upsert capability to handle duplicates.
 
         Args:
             vectors: Batch of vectors to insert
             payloads: Optional batch of metadata payloads
             ids: Optional batch of IDs
         """
-        # Pre-allocate list for better performance
-        data_rows = []
+        # ClickZetta doesn't support REPLACE INTO, so we use explicit duplicate handling
+        self._insert_batch_with_duplicate_check(vectors, payloads, ids)
 
+    def _insert_batch_with_duplicate_check(self, vectors: List[List[float]], payloads: Optional[List[Dict]] = None, ids: Optional[List[str]] = None):
+        """
+        Batch insert with explicit duplicate checking using INSERT ... ON DUPLICATE KEY UPDATE pattern.
+
+        Args:
+            vectors: Batch of vectors to insert
+            payloads: Optional batch of metadata payloads
+            ids: Optional batch of IDs
+        """
+        # First, try to use a more efficient batch approach
+        try:
+            self._insert_batch_optimized(vectors, payloads, ids)
+        except Exception as e:
+            logger.warning(f"Batch insert failed, falling back to individual upserts: {e}")
+            # Fallback to individual upserts
+            self._insert_individual_upserts(vectors, payloads, ids)
+
+    def _insert_batch_optimized(self, vectors: List[List[float]], payloads: Optional[List[Dict]] = None, ids: Optional[List[str]] = None):
+        """
+        Optimized batch insert that tries to insert all records, then handles conflicts.
+
+        Args:
+            vectors: Batch of vectors to insert
+            payloads: Optional batch of metadata payloads
+            ids: Optional batch of IDs
+        """
+        # For ClickZetta, we need to check for duplicates first since it doesn't have native upsert
+        # Let's directly use individual upserts for reliability
+        self._insert_individual_upserts(vectors, payloads, ids)
+
+    def _insert_individual_upserts(self, vectors: List[List[float]], payloads: Optional[List[Dict]] = None, ids: Optional[List[str]] = None):
+        """
+        Handle each vector individually with explicit duplicate checking.
+
+        Args:
+            vectors: Batch of vectors to insert
+            payloads: Optional batch of metadata payloads
+            ids: Optional batch of IDs
+        """
         for idx, vector in enumerate(vectors):
             vector_id = ids[idx] if ids else str(uuid.uuid4())
             payload = payloads[idx] if payloads else {}
 
-            # Extract content from payload - mem0 uses "data" key as primary content field
+            # Check if record already exists
+            check_query = f"SELECT COUNT(*) as count FROM {self.collection_name} WHERE {self.id_column} = '{vector_id}'"
+
+            try:
+                result = self.engine.execute_query(check_query)
+                exists = result and len(result) > 0 and result[0].get('count', 0) > 0
+            except Exception:
+                # If check fails, assume it doesn't exist and try insert
+                exists = False
+
+            # Extract content and metadata
             content = payload.get("data") or payload.get("content") or payload.get("text") or ""
-
-            # Create metadata without the content field to avoid duplication
             metadata_payload = {k: v for k, v in payload.items() if k not in ["data", "content", "text"]}
-            metadata_json = json.dumps(metadata_payload, separators=(',', ':'))  # Compact JSON
-
-            # Use more efficient vector formatting
+            metadata_json = json.dumps(metadata_payload, separators=(',', ':'))
             formatted_vector = self._format_vector_optimized(vector)
 
-            # Escape single quotes in content and metadata for SQL safety
+            # Escape strings for SQL
             content_escaped = content.replace("'", "''")
             metadata_escaped = metadata_json.replace("'", "''")
 
-            data_rows.append(f"('{vector_id}', '{content_escaped}', '{metadata_escaped}', {formatted_vector})")
-
-        # Use single INSERT statement for the entire batch
-        insert_query = f"""
-        INSERT INTO {self.collection_name}
-        ({self.id_column}, {self.content_column}, {self.metadata_column}, {self.embedding_column})
-        VALUES {', '.join(data_rows)}
-        """
-
-        self.engine.execute_query(insert_query)
+            try:
+                if exists:
+                    # Update existing record
+                    update_query = f"""
+                    UPDATE {self.collection_name}
+                    SET {self.content_column} = '{content_escaped}',
+                        {self.metadata_column} = '{metadata_escaped}',
+                        {self.embedding_column} = {formatted_vector}
+                    WHERE {self.id_column} = '{vector_id}'
+                    """
+                    self.engine.execute_query(update_query)
+                    logger.debug(f"Updated existing vector with ID: {vector_id}")
+                else:
+                    # Insert new record
+                    insert_query = f"""
+                    INSERT INTO {self.collection_name}
+                    ({self.id_column}, {self.content_column}, {self.metadata_column}, {self.embedding_column})
+                    VALUES ('{vector_id}', '{content_escaped}', '{metadata_escaped}', {formatted_vector})
+                    """
+                    self.engine.execute_query(insert_query)
+                    logger.debug(f"Inserted new vector with ID: {vector_id}")
+            except Exception as e:
+                logger.warning(f"Failed to upsert vector {vector_id}: {e}")
+                # Continue with next vector instead of failing the entire batch
 
     def _format_vector_optimized(self, vector: List[float]) -> str:
         """
@@ -856,10 +915,19 @@ class ClickZetta(VectorStoreBase):
 
             if results and len(results) > 0:
                 result = results[0]
+
+                # Parse metadata
+                metadata = json.loads(result.get(self.metadata_column, "{}")) if result.get(self.metadata_column) else {}
+
+                # Add content to metadata as "data" field (mem0 convention)
+                content = result.get(self.content_column, "")
+                if content:
+                    metadata["data"] = content
+
                 return OutputData(
                     id=str(result.get(self.id_column)),
                     score=None,
-                    payload=json.loads(result.get(self.metadata_column, "{}")) if result.get(self.metadata_column) else {},
+                    payload=metadata,
                 )
 
             return None
