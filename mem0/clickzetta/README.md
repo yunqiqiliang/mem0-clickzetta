@@ -56,6 +56,53 @@ print('✅ All dependencies installed successfully!')
 "
 ```
 
+#### 4. Configure Environment Variables
+
+Before running tests, set up your configuration:
+
+```bash
+# Create server directory for configuration
+mkdir -p server
+
+# Create .env file with your credentials
+cat > server/.env << 'EOF'
+# ClickZetta Configuration
+CLICKZETTA_SERVICE=your-service-endpoint
+CLICKZETTA_INSTANCE=your-instance
+CLICKZETTA_WORKSPACE=your-workspace
+CLICKZETTA_SCHEMA=your-schema
+CLICKZETTA_USERNAME=your-username
+CLICKZETTA_PASSWORD=your-password
+CLICKZETTA_VCLUSTER=your-vcluster
+
+# DashScope API Configuration
+DASHSCOPE_API_KEY=your-dashscope-api-key
+EOF
+
+# Edit with your actual credentials
+nano server/.env  # or use your preferred editor
+```
+
+#### 5. Run Tests to Verify Setup
+
+```bash
+# Test configuration loading
+python -c "
+from mem0.clickzetta.config_loader import get_clickzetta_config
+config = get_clickzetta_config()
+print('✅ Configuration loaded!' if config else '❌ Configuration failed')
+"
+
+# Run basic functionality test (requires valid credentials)
+python -c "
+try:
+    from mem0.vector_stores.clickzetta import ClickZetta
+    print('✅ ClickZetta integration ready!')
+except Exception as e:
+    print(f'❌ Setup issue: {e}')
+"
+```
+
 ### Method 2: Source Code Installation
 
 #### 1. Clone the Repository
@@ -95,15 +142,60 @@ print('✅ ClickZetta dependencies installed successfully!')
 "
 ```
 
-#### 4. Run Tests to Verify Installation
+#### 4. Configure Environment Variables
+
+Before running tests, you need to set up your configuration:
 
 ```bash
-# Run unit tests
+# Create server directory for configuration
+mkdir -p server
+
+# Copy example configuration (if available)
+cp server/.env.example server/.env
+
+# Or create .env file manually
+cat > server/.env << 'EOF'
+# ClickZetta Configuration
+CLICKZETTA_SERVICE=your-service-endpoint
+CLICKZETTA_INSTANCE=your-instance
+CLICKZETTA_WORKSPACE=your-workspace
+CLICKZETTA_SCHEMA=your-schema
+CLICKZETTA_USERNAME=your-username
+CLICKZETTA_PASSWORD=your-password
+CLICKZETTA_VCLUSTER=your-vcluster
+
+# DashScope API Configuration
+DASHSCOPE_API_KEY=your-dashscope-api-key
+EOF
+
+# Edit the .env file with your actual credentials
+nano server/.env  # or use your preferred editor
+```
+
+**Important**: Replace the placeholder values with your actual ClickZetta and DashScope credentials.
+
+#### 5. Run Tests to Verify Installation
+
+```bash
+# Run unit tests (no configuration required)
 python -m pytest tests/test_clickzetta_vector_store.py -v
 
-# Run integration tests (requires configuration)
+# Verify configuration is loaded correctly
+python -c "
+from mem0.clickzetta.config_loader import get_clickzetta_config
+config = get_clickzetta_config()
+if config:
+    print('✅ Configuration loaded successfully!')
+    print(f'Service: {config.get(\"CLICKZETTA_SERVICE\", \"Not set\")}')
+else:
+    print('❌ Configuration failed - please check your .env file')
+"
+
+# Run integration tests (requires valid configuration)
 python mem0/clickzetta/test_integration.py
 ```
+
+**Note**: Integration tests require valid ClickZetta and DashScope credentials. Unit tests can run without configuration.
 
 ### Method 3: Docker Installation (Optional)
 
