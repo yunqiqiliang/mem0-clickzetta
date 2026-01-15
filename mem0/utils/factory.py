@@ -146,6 +146,7 @@ class EmbedderFactory:
         "langchain": "mem0.embeddings.langchain.LangchainEmbedding",
         "aws_bedrock": "mem0.embeddings.aws_bedrock.AWSBedrockEmbedding",
         "fastembed": "mem0.embeddings.fastembed.FastEmbedEmbedding",
+        "dashscope": "mem0.embeddings.dashscope.DashScopeEmbedding",
     }
 
     @classmethod
@@ -186,6 +187,7 @@ class VectorStoreFactory:
         "baidu": "mem0.vector_stores.baidu.BaiduDB",
         "cassandra": "mem0.vector_stores.cassandra.CassandraDB",
         "neptune": "mem0.vector_stores.neptune_analytics.NeptuneAnalyticsVector",
+        "clickzetta": "mem0.vector_stores.clickzetta.ClickZetta",
     }
 
     @classmethod
