@@ -109,7 +109,7 @@ except Exception as e:
 
 ```bash
 # Clone the mem0-clickzetta repository
-git clone https://github.com/your-username/mem0-clickzetta.git
+git clone https://github.com/yunqiqiliang/mem0-clickzetta.git
 cd mem0-clickzetta
 ```
 
